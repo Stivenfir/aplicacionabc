@@ -567,7 +567,7 @@ router.put("/:idReserva/cancelar", authenticateToken, async (req, res) => {
     }
 
     // SP_EditReservas con @P=1 para cancelar reserva        
-    var Rta = await GetData(`EditReservas=@P%3D1,@IdEmpleadoPuestoTrabajo%3D${idReserva},@Obs%3D${encodeURIComponent(observacion)},@IdEmpleado%3D${idEmpleado}`);        
+    var Rta = await GetData(`EditReservas=@P%3D1,@IdEmpleadoPuestoTrabajo%3D${idReserva},@Obs%3D'${encodeURIComponent(observacion)}',@IdEmpleado%3D${idEmpleado}`);        
         
     // ✅ Validar formato PHP inválido      
     if (!Rta || Rta.trim().startsWith('Array') || Rta.trim().startsWith(':')) {        
