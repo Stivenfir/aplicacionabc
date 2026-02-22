@@ -20,6 +20,7 @@ import C_DashboardLayout from "./layouts/DashboardLayoutCustom";
 import Puestos from "./pages/Puestos";
 import MisReservas from "./pages/MisReservas"; // ⬅️ Agregar import 
 import ListaReservas from "./pages/admin/ListaReservas";
+import ReasignacionesConstruccion from "./pages/admin/ReasignacionesConstruccion";
 
 function PrivateRoute({ children }) {
   return isAuthed() ? children : <Navigate to="/login" replace />;
@@ -127,6 +128,18 @@ function AppRoutes() {
             <PrivateRoute>
               <DashboardLayout>
                 <MisReservas />
+              </DashboardLayout>
+            </PrivateRoute>
+          }
+        />
+
+
+        <Route
+          path="/admin/asignaciones"
+          element={
+            <PrivateRoute>
+              <DashboardLayout>
+                <ReasignacionesConstruccion />
               </DashboardLayout>
             </PrivateRoute>
           }

@@ -32,14 +32,9 @@ export default function Header({ onMenuClick }) {
             </svg>
           </motion.button>
 
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-100 flex items-center justify-center shadow-sm">
-              <span className="text-slate-900 font-black tracking-wider">ABC</span>
-            </div>
-            <div>
-              <h1 className="text-2xl leading-none font-extrabold text-slate-900">ABC Desk Booking</h1>
-              <p className="text-xs text-slate-500 mt-1">Panel corporativo de operación</p>
-            </div>
+          <div>
+            <h1 className="text-2xl leading-none font-extrabold text-slate-900">ABC Desk Booking</h1>
+            <p className="text-xs text-slate-500 mt-1">Panel corporativo de operación</p>
           </div>
         </div>
 

@@ -9,7 +9,6 @@ const menuItems = [
   { path: "/puestos", label: "Gestión de Puestos", icon: "🪑", roles: ["admin"] },
   { path: "/admin/usuarios", label: "Lista de Reservas", icon: "📊", roles: ["admin"] },
   { path: "/admin/asignaciones", label: "Re-asignar Puestos", icon: "🔄", roles: ["admin", "jefe"] },
-  { path: "/admin/parametros", label: "Parametrización", icon: "⚙️", roles: ["admin"] },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -56,14 +55,9 @@ export default function Sidebar({ isOpen, onClose }) {
               className="mb-6"
             >
               <div className="rounded-2xl p-4 border border-slate-600/50 bg-slate-900/60 shadow-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-white text-slate-900 flex items-center justify-center shadow-sm">
-                    <span className="font-black tracking-widest">ABC</span>
-                  </div>
-                  <div>
-                    <p className="text-slate-50 font-bold text-sm">ABC Desk Booking</p>
-                    <p className="mt-0.5 text-xs text-slate-300">Panel corporativo de operación</p>
-                  </div>
+                <div>
+                  <p className="text-slate-50 font-bold text-base">ABC Desk Booking</p>
+                  <p className="mt-0.5 text-xs text-slate-300">Panel corporativo de operación</p>
                 </div>
               </div>
             </motion.div>
