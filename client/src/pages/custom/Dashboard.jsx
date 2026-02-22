@@ -34,42 +34,6 @@ export default function CM_Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.97, y: -10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
-        className="relative overflow-hidden rounded-2xl border border-cyan-200/60 bg-gradient-to-r from-cyan-50 via-blue-50 to-violet-50 p-4 shadow-sm"
-      >
-        <motion.div
-          animate={{ x: [0, 18, 0] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -top-10 -left-8 w-24 h-24 rounded-full bg-cyan-300/35 blur-2xl"
-        />
-        <motion.div
-          animate={{ x: [0, -16, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -bottom-10 -right-6 w-24 h-24 rounded-full bg-violet-300/35 blur-2xl"
-        />
-        <div className="relative z-10 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold tracking-[0.2em] text-cyan-700 uppercase">Bienvenida interactiva</p>
-            <motion.h2
-              animate={{ opacity: [0.9, 1, 0.9] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              className="text-xl md:text-2xl font-black text-slate-900"
-            >
-              ¡Hoy será un gran día en ABC Desk Booking!
-            </motion.h2>
-          </div>
-          <motion.div
-            animate={{ rotate: [0, 6, -6, 0] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-            className="text-3xl md:text-4xl"
-          >
-            🚀
-          </motion.div>
-        </div>
-      </motion.div>
       <motion.section
         initial={{ y: -16, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
