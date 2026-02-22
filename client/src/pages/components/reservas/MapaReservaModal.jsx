@@ -113,13 +113,15 @@ function toDisplayRect(rect, metrics) {
 function syncCanvasWithImage(canvas, image) {
   if (!canvas || !image) return null;
 
-  const displayWidth = image.clientWidth || image.width || 0;
-  const displayHeight = image.clientHeight || image.height || 0;
-  const naturalWidth = image.naturalWidth || displayWidth;
-  const naturalHeight = image.naturalHeight || displayHeight;
-  if (!displayWidth || !displayHeight || !naturalWidth || !naturalHeight) return null;
+  const naturalWidth = image.naturalWidth || image.clientWidth || image.width || 0;
+  const naturalHeight = image.naturalHeight || image.clientHeight || image.height || 0;
+  if (!naturalWidth || !naturalHeight) return null;
 
-  // Misma referencia que se usa al mapear puestos (coordenadas en display)
+  // Usar tamaño intrínseco del plano para mantener la misma referencia
+  // que se utiliza al guardar coordenadas en otros módulos.
+  const displayWidth = naturalWidth;
+  const displayHeight = naturalHeight;
+
   canvas.width = displayWidth;
   canvas.height = displayHeight;
   canvas.style.width = `${displayWidth}px`;
@@ -479,58 +481,12 @@ export default function MapaReservaModal({
 
     if (!coords.hasCoords) return;
 
-    const candidatos = [];
-
-    // 1) Coordenadas directas detectando automáticamente display vs natural
+    // Mantener la misma referencia que en módulos que ya funcionan:
+    // usar conversión directa display/natural sin reproyectar por delimitación,
+    // porque esa reproyección terminaba moviendo el punto real del puesto.
     const puntoBase = toDisplayPoint(coords.x, coords.y, metrics);
-    if (puntoBase) {
-      candidatos.push({ x: puntoBase.x, y: puntoBase.y, tipo: puntoBase.source });
-    }
-
-    // 2) Coordenadas guardadas en escala natural de la imagen
-    candidatos.push({
-      x: (coords.x * metrics.displayWidth) / metrics.naturalWidth,
-      y: (coords.y * metrics.displayHeight) / metrics.naturalHeight,
-      tipo: "natural-a-display",
-    });
-
-    // 3) Coordenadas relativas a la delimitación que contiene el punto original.
-    // Esto corrige desfases cuando el mapeo fue guardado con otro tamaño de visualización.
-    delimitacionesParaDibujar.forEach((d) => {
-      const dentroRaw = coords.x >= d.rawX && coords.x <= d.rawX + d.rawW && coords.y >= d.rawY && coords.y <= d.rawY + d.rawH;
-      if (!dentroRaw || d.rawW <= 0 || d.rawH <= 0 || d.w <= 0 || d.h <= 0) return;
-
-      const relX = (coords.x - d.rawX) / d.rawW;
-      const relY = (coords.y - d.rawY) / d.rawH;
-
-      candidatos.push({
-        x: d.x + relX * d.w,
-        y: d.y + relY * d.h,
-        tipo: "relativo-delimitacion",
-      });
-    });
-
-    const puntaje = (pt) => {
-      if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) return -100;
-      const dentroPlano = pt.x >= 0 && pt.y >= 0 && pt.x <= metrics.displayWidth && pt.y <= metrics.displayHeight;
-      let score = dentroPlano ? 10 : -10;
-
-      if (delimitacionesParaDibujar.length) {
-        const dentroArea = delimitacionesParaDibujar.some((d) =>
-          pt.x >= d.x && pt.x <= d.x + d.w && pt.y >= d.y && pt.y <= d.y + d.h,
-        );
-        score += dentroArea ? 100 : -40;
-      }
-
-      return score;
-    };
-
-    const mejor = candidatos
-      .map((pt) => ({ ...pt, score: puntaje(pt) }))
-      .sort((a, b) => b.score - a.score)[0];
-
-    let x = mejor?.x ?? coords.x;
-    let y = mejor?.y ?? coords.y;
+    let x = puntoBase?.x ?? (coords.x * metrics.displayWidth) / metrics.naturalWidth;
+    let y = puntoBase?.y ?? (coords.y * metrics.displayHeight) / metrics.naturalHeight;
 
     x = Math.max(0, Math.min(metrics.displayWidth, x));
     y = Math.max(0, Math.min(metrics.displayHeight, y));
@@ -665,7 +621,7 @@ export default function MapaReservaModal({
                     ref={imagenRef}
                     src={planoUrl}
                     alt="Plano del piso"
-                    className="block w-full h-auto"
+                    className="block max-w-none h-auto"
                     onLoad={() => {
                       dibujarPuestoAsignado();
                     }}
