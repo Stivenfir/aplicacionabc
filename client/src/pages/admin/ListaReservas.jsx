@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-function pick(row, keys, fallback = "-") {
+function pick(row, keys, fallback = "") {
   for (const key of keys) {
     const value = row?.[key];
     if (value !== undefined && value !== null && String(value).trim() !== "") {
@@ -34,11 +34,33 @@ function formatDate(value) {
   return `${d}/${m}/${y}`;
 }
 
+function getTodayKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function moveDate(dateKey, deltaDays) {
+  const base = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(base.getTime())) return dateKey;
+  base.setDate(base.getDate() + deltaDays);
+  return toDateKey(base.toISOString()) || dateKey;
+}
+
+function getEstadoLabel(row) {
+  return String(pick(row, ["ReservaActiva"], "1")) === "1" ? "Activa" : "Cancelada";
+}
+
+function getPuestoId(row) {
+  const id = Number(pick(row, ["IdPuestoTrabajo", "IDPuestoTrabajo", "idPuestoTrabajo"], ""));
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
 function getPuestoKey(row) {
-  const id = Number(
-    pick(row, ["IdPuestoTrabajo", "IDPuestoTrabajo", "idPuestoTrabajo"], ""),
-  );
-  if (Number.isFinite(id) && id > 0) return `id:${id}`;
+  const id = getPuestoId(row);
+  if (id) return `id:${id}`;
 
   const noPuesto = pick(row, ["NoPuesto", "NumeroPuesto", "Puesto"], "");
   if (noPuesto !== "") return `np:${String(noPuesto)}`;
@@ -54,8 +76,103 @@ function getPisoLabel(row) {
   return String(pick(row, ["NumeroPiso", "IdPiso", "IDPiso"], "Sin piso"));
 }
 
-function getEstadoLabel(row) {
-  return String(pick(row, ["ReservaActiva"], "1")) === "1" ? "Activa" : "Cancelada";
+function getPuestoLabel(row) {
+  return String(pick(row, ["NoPuesto", "NumeroPuesto", "Puesto"], "Sin número"));
+}
+
+function getUsuarioLabel(row) {
+  const nombre = pick(
+    row,
+    [
+      "NombreEmpleado",
+      "NomEmpleado",
+      "Empleado",
+      "Nombre",
+      "Usuario",
+      "UserName",
+      "LoginEmpleado",
+      "Login",
+      "Usr",
+    ],
+    "",
+  );
+
+  if (nombre) return String(nombre);
+
+  const idEmpleado = pick(row, ["IdEmpleado", "IDEmpleado", "idEmpleado"], "");
+  if (idEmpleado !== "") return `Empleado #${idEmpleado}`;
+
+  return "Sin usuario";
+}
+
+function mergePreferCurrent(current, fallback) {
+  const output = { ...(fallback || {}), ...(current || {}) };
+
+  // Si current trae vacío para campos clave, conservar fallback enriquecido.
+  ["NoPuesto", "NombreArea", "NumeroPiso", "IdPiso", "IdAreaPiso"].forEach((key) => {
+    const cur = current?.[key];
+    if (cur === undefined || cur === null || String(cur).trim() === "") {
+      if (fallback?.[key] !== undefined) output[key] = fallback[key];
+    }
+  });
+
+  return output;
+}
+
+async function construirCatalogoPuestos(token) {
+  const resPisos = await fetch(`${API}/api/pisos`);
+  const pisos = resPisos.ok ? await resPisos.json() : [];
+  const listaPisos = Array.isArray(pisos) ? pisos : [];
+
+  const mapaPisos = new Map();
+  listaPisos.forEach((p) => {
+    mapaPisos.set(Number(p.IDPiso), p);
+  });
+
+  const mapaPuestos = new Map();
+
+  for (const piso of listaPisos) {
+    const idPiso = Number(piso.IDPiso);
+    if (!idPiso) continue;
+
+    const resAreas = await fetch(`${API}/api/areas/piso/${idPiso}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!resAreas.ok) continue;
+
+    const areas = await resAreas.json();
+    const listaAreas = Array.isArray(areas) ? areas : [];
+
+    for (const area of listaAreas) {
+      if (!area?.IdAreaPiso) continue;
+
+      const resPuestos = await fetch(`${API}/api/puestos/area/${area.IdAreaPiso}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resPuestos.ok) continue;
+
+      const puestos = await resPuestos.json();
+      const listaPuestos = Array.isArray(puestos) ? puestos : [];
+
+      listaPuestos.forEach((puesto) => {
+        const idPuesto = Number(puesto?.IdPuestoTrabajo);
+        if (!idPuesto) return;
+
+        const pisoCatalogo = mapaPisos.get(idPiso);
+
+        mapaPuestos.set(idPuesto, {
+          IdPuestoTrabajo: idPuesto,
+          NoPuesto: puesto?.NoPuesto ?? puesto?.NumeroPuesto ?? null,
+          NombreArea: area?.NombreArea ?? null,
+          IdAreaPiso: area?.IdAreaPiso ?? null,
+          IdPiso: idPiso,
+          NumeroPiso: pisoCatalogo?.NumeroPiso ?? idPiso,
+        });
+      });
+    }
+  }
+
+  return mapaPuestos;
 }
 
 export default function ListaReservas() {
@@ -65,6 +182,7 @@ export default function ListaReservas() {
   const [puestoSeleccionado, setPuestoSeleccionado] = useState("");
   const [filtroArea, setFiltroArea] = useState("TODAS");
   const [filtroPiso, setFiltroPiso] = useState("TODOS");
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(getTodayKey());
 
   useEffect(() => {
     const cargar = async () => {
@@ -72,16 +190,28 @@ export default function ListaReservas() {
       setError("");
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`${API}/api/reservas/todas`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
 
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+        const [resReservas, mapaPuestos] = await Promise.all([
+          fetch(`${API}/api/reservas/todas`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          construirCatalogoPuestos(token),
+        ]);
+
+        if (!resReservas.ok) {
+          throw new Error(`HTTP ${resReservas.status}`);
         }
 
-        const data = await res.json();
-        setReservas(Array.isArray(data) ? data : []);
+        const data = await resReservas.json();
+        const reservasBase = Array.isArray(data) ? data : [];
+
+        const enriquecidas = reservasBase.map((r) => {
+          const idPuesto = getPuestoId(r);
+          const catalogo = idPuesto ? mapaPuestos.get(idPuesto) : null;
+          return mergePreferCurrent(r, catalogo);
+        });
+
+        setReservas(enriquecidas);
       } catch (e) {
         setError(e.message || "Error cargando reservas");
       } finally {
@@ -90,14 +220,6 @@ export default function ListaReservas() {
     };
 
     cargar();
-  }, []);
-
-  const hoy = useMemo(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const d = String(now.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
   }, []);
 
   const areasDisponibles = useMemo(() => {
@@ -118,22 +240,18 @@ export default function ListaReservas() {
     });
   }, [reservas, filtroArea, filtroPiso]);
 
-  const reservasDelDia = useMemo(() => {
+  const reservasPorFecha = useMemo(() => {
     return reservasFiltradas
-      .filter((r) => toDateKey(pick(r, ["FechaReserva", "fechaReserva"], "")) === hoy)
-      .sort((a, b) =>
-        String(pick(a, ["NombreEmpleado", "Empleado", "Usuario"], "")).localeCompare(
-          String(pick(b, ["NombreEmpleado", "Empleado", "Usuario"], "")),
-        ),
-      );
-  }, [reservasFiltradas, hoy]);
+      .filter((r) => toDateKey(pick(r, ["FechaReserva", "fechaReserva"], "")) === fechaSeleccionada)
+      .sort((a, b) => getUsuarioLabel(a).localeCompare(getUsuarioLabel(b)));
+  }, [reservasFiltradas, fechaSeleccionada]);
 
   const puestosDisponibles = useMemo(() => {
     const map = new Map();
 
     reservasFiltradas.forEach((r) => {
       const key = getPuestoKey(r);
-      const labelNoPuesto = pick(r, ["NoPuesto", "NumeroPuesto", "Puesto"], "Sin número");
+      const labelNoPuesto = getPuestoLabel(r);
       const idPuesto = pick(r, ["IdPuestoTrabajo", "IDPuestoTrabajo", "idPuestoTrabajo"], "N/D");
       if (!map.has(key)) {
         map.set(key, { key, label: `Puesto ${labelNoPuesto} (ID ${idPuesto})` });
@@ -161,7 +279,7 @@ export default function ListaReservas() {
       });
   }, [reservasFiltradas, puestoSeleccionado]);
 
-  const totalActivasHoy = reservasDelDia.filter((r) => getEstadoLabel(r) === "Activa").length;
+  const totalActivasFecha = reservasPorFecha.filter((r) => getEstadoLabel(r) === "Activa").length;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -171,13 +289,28 @@ export default function ListaReservas() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900">📋 Centro de Reservas</h1>
               <p className="text-sm text-slate-600 mt-1">
-                Vista corporativa de reservas del día, con control por área, piso e historial por puesto.
+                Control por piso &gt; área &gt; puesto, con calendario operativo y trazabilidad de usuario.
               </p>
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 font-medium">
-                Fecha: {formatDate(hoy)}
-              </span>
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <button
+                onClick={() => setFechaSeleccionada((prev) => moveDate(prev, -1))}
+                className="px-2 py-1 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700"
+              >
+                ◀
+              </button>
+              <input
+                type="date"
+                value={fechaSeleccionada}
+                onChange={(e) => setFechaSeleccionada(e.target.value)}
+                className="px-2 py-1 rounded-md border border-slate-300 bg-white text-slate-800"
+              />
+              <button
+                onClick={() => setFechaSeleccionada((prev) => moveDate(prev, 1))}
+                className="px-2 py-1 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700"
+              >
+                ▶
+              </button>
             </div>
           </div>
         </div>
@@ -203,15 +336,15 @@ export default function ListaReservas() {
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Reservas hoy</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1">{reservasDelDia.length}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Reservas en fecha</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">{reservasPorFecha.length}</p>
                 </div>
                 <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50">
-                  <p className="text-xs uppercase tracking-wide text-emerald-700">Activas hoy</p>
-                  <p className="text-2xl font-bold text-emerald-800 mt-1">{totalActivasHoy}</p>
+                  <p className="text-xs uppercase tracking-wide text-emerald-700">Activas en fecha</p>
+                  <p className="text-2xl font-bold text-emerald-800 mt-1">{totalActivasFecha}</p>
                 </div>
                 <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Total registros</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Total filtrado</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1">{reservasFiltradas.length}</p>
                 </div>
               </div>
@@ -226,7 +359,9 @@ export default function ListaReservas() {
                   >
                     <option value="TODAS">Todas las áreas</option>
                     {areasDisponibles.map((area) => (
-                      <option key={area} value={area}>{area}</option>
+                      <option key={area} value={area}>
+                        {area}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -239,7 +374,9 @@ export default function ListaReservas() {
                   >
                     <option value="TODOS">Todos los pisos</option>
                     {pisosDisponibles.map((piso) => (
-                      <option key={piso} value={piso}>Piso {piso}</option>
+                      <option key={piso} value={piso}>
+                        Piso {piso}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -251,9 +388,10 @@ export default function ListaReservas() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
             >
-              <h2 className="text-lg font-semibold text-slate-900 mb-3">Reservas del día</h2>
-              {reservasDelDia.length === 0 ? (
-                <p className="text-slate-500">No hay reservas para los filtros seleccionados.</p>
+              <h2 className="text-lg font-semibold text-slate-900 mb-1">Reservas por fecha</h2>
+              <p className="text-sm text-slate-500 mb-3">Fecha seleccionada: {formatDate(fechaSeleccionada)}</p>
+              {reservasPorFecha.length === 0 ? (
+                <p className="text-slate-500">No hay reservas para esta fecha con los filtros seleccionados.</p>
               ) : (
                 <div className="overflow-auto rounded-xl border border-slate-200">
                   <table className="min-w-full text-sm">
@@ -267,16 +405,21 @@ export default function ListaReservas() {
                       </tr>
                     </thead>
                     <tbody>
-                      {reservasDelDia.map((r, idx) => {
+                      {reservasPorFecha.map((r, idx) => {
                         const estado = getEstadoLabel(r);
                         return (
-                          <tr key={`${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`} className="border-t border-slate-100">
-                            <td className="py-3 px-4 text-slate-800">{pick(r, ["NombreEmpleado", "Empleado", "Usuario", "LoginEmpleado"])}</td>
-                            <td className="py-3 px-4 text-slate-800">#{pick(r, ["NoPuesto", "NumeroPuesto", "Puesto"])}</td>
+                          <tr
+                            key={`${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`}
+                            className="border-t border-slate-100"
+                          >
+                            <td className="py-3 px-4 text-slate-800">{getUsuarioLabel(r)}</td>
+                            <td className="py-3 px-4 text-slate-800">#{getPuestoLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getAreaLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getPisoLabel(r)}</td>
                             <td className="py-3 px-4">
-                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${estado === "Activa" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-semibold ${estado === "Activa" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
+                              >
                                 {estado}
                               </span>
                             </td>
@@ -303,7 +446,9 @@ export default function ListaReservas() {
                 >
                   <option value="">Selecciona un puesto</option>
                   {puestosDisponibles.map((p) => (
-                    <option key={p.key} value={p.key}>{p.label}</option>
+                    <option key={p.key} value={p.key}>
+                      {p.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -328,13 +473,18 @@ export default function ListaReservas() {
                       {historialPuesto.map((r, idx) => {
                         const estado = getEstadoLabel(r);
                         return (
-                          <tr key={`hist-${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`} className="border-t border-slate-100">
+                          <tr
+                            key={`hist-${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`}
+                            className="border-t border-slate-100"
+                          >
                             <td className="py-3 px-4 text-slate-800">{formatDate(pick(r, ["FechaReserva", "fechaReserva"]))}</td>
-                            <td className="py-3 px-4 text-slate-800">{pick(r, ["NombreEmpleado", "Empleado", "Usuario", "LoginEmpleado"])}</td>
+                            <td className="py-3 px-4 text-slate-800">{getUsuarioLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getAreaLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getPisoLabel(r)}</td>
                             <td className="py-3 px-4">
-                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${estado === "Activa" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-semibold ${estado === "Activa" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
+                              >
                                 {estado}
                               </span>
                             </td>
