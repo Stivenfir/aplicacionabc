@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
+let puestosCatalogoCache = null;
 
 function pick(row, keys, fallback = "") {
   for (const key of keys) {
@@ -16,8 +17,20 @@ function pick(row, keys, fallback = "") {
 function toDateKey(value) {
   const raw = String(value || "").trim();
   if (!raw) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
 
+  // 1) YYYY-MM-DD
+  const iso = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  // 2) YYYYMMDD
+  const compact = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
+
+  // 3) DD/MM/YYYY
+  const latam = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (latam) return `${latam[3]}-${latam[2]}-${latam[1]}`;
+
+  // 4) Fallback Date parser
   const parsed = new Date(raw.includes("T") ? raw : `${raw}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return null;
 
@@ -58,14 +71,14 @@ function getPuestoId(row) {
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
+function getPuestoLabel(row) {
+  return String(pick(row, ["NoPuesto", "NumeroPuesto", "Puesto"], "Sin número"));
+}
+
 function getPuestoKey(row) {
   const id = getPuestoId(row);
   if (id) return `id:${id}`;
-
-  const noPuesto = pick(row, ["NoPuesto", "NumeroPuesto", "Puesto"], "");
-  if (noPuesto !== "") return `np:${String(noPuesto)}`;
-
-  return "Sin puesto";
+  return `np:${getPuestoLabel(row)}`;
 }
 
 function getAreaLabel(row) {
@@ -74,10 +87,6 @@ function getAreaLabel(row) {
 
 function getPisoLabel(row) {
   return String(pick(row, ["NumeroPiso", "IdPiso", "IDPiso"], "Sin piso"));
-}
-
-function getPuestoLabel(row) {
-  return String(pick(row, ["NoPuesto", "NumeroPuesto", "Puesto"], "Sin número"));
 }
 
 function getUsuarioLabel(row) {
@@ -107,77 +116,84 @@ function getUsuarioLabel(row) {
 
 function mergePreferCurrent(current, fallback) {
   const output = { ...(fallback || {}), ...(current || {}) };
-
-  // Si current trae vacío para campos clave, conservar fallback enriquecido.
   ["NoPuesto", "NombreArea", "NumeroPiso", "IdPiso", "IdAreaPiso"].forEach((key) => {
     const cur = current?.[key];
     if (cur === undefined || cur === null || String(cur).trim() === "") {
       if (fallback?.[key] !== undefined) output[key] = fallback[key];
     }
   });
-
   return output;
 }
 
-async function construirCatalogoPuestos(token) {
+async function construirCatalogoPuestosRapido(token) {
+  if (puestosCatalogoCache) return puestosCatalogoCache;
+
   const resPisos = await fetch(`${API}/api/pisos`);
   const pisos = resPisos.ok ? await resPisos.json() : [];
   const listaPisos = Array.isArray(pisos) ? pisos : [];
 
   const mapaPisos = new Map();
-  listaPisos.forEach((p) => {
-    mapaPisos.set(Number(p.IDPiso), p);
-  });
+  listaPisos.forEach((p) => mapaPisos.set(Number(p.IDPiso), p));
 
-  const mapaPuestos = new Map();
+  const areasPorPiso = await Promise.all(
+    listaPisos.map(async (piso) => {
+      const idPiso = Number(piso.IDPiso);
+      if (!idPiso) return [];
 
-  for (const piso of listaPisos) {
-    const idPiso = Number(piso.IDPiso);
-    if (!idPiso) continue;
+      const resAreas = await fetch(`${API}/api/areas/piso/${idPiso}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resAreas.ok) return [];
 
-    const resAreas = await fetch(`${API}/api/areas/piso/${idPiso}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!resAreas.ok) continue;
+      const areas = await resAreas.json();
+      return (Array.isArray(areas) ? areas : [])
+        .filter((a) => a?.IdAreaPiso)
+        .map((a) => ({ ...a, __idPiso: idPiso }));
+    }),
+  );
 
-    const areas = await resAreas.json();
-    const listaAreas = Array.isArray(areas) ? areas : [];
+  const areasFlat = areasPorPiso.flat();
 
-    for (const area of listaAreas) {
-      if (!area?.IdAreaPiso) continue;
-
+  const puestosPorArea = await Promise.all(
+    areasFlat.map(async (area) => {
       const resPuestos = await fetch(`${API}/api/puestos/area/${area.IdAreaPiso}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!resPuestos.ok) continue;
+      if (!resPuestos.ok) return [];
 
       const puestos = await resPuestos.json();
       const listaPuestos = Array.isArray(puestos) ? puestos : [];
 
-      listaPuestos.forEach((puesto) => {
+      return listaPuestos.map((puesto) => {
         const idPuesto = Number(puesto?.IdPuestoTrabajo);
-        if (!idPuesto) return;
+        if (!idPuesto) return null;
 
-        const pisoCatalogo = mapaPisos.get(idPiso);
-
-        mapaPuestos.set(idPuesto, {
+        const pisoCatalogo = mapaPisos.get(Number(area.__idPiso));
+        return {
           IdPuestoTrabajo: idPuesto,
           NoPuesto: puesto?.NoPuesto ?? puesto?.NumeroPuesto ?? null,
           NombreArea: area?.NombreArea ?? null,
           IdAreaPiso: area?.IdAreaPiso ?? null,
-          IdPiso: idPiso,
-          NumeroPiso: pisoCatalogo?.NumeroPiso ?? idPiso,
-        });
+          IdPiso: Number(area.__idPiso),
+          NumeroPiso: pisoCatalogo?.NumeroPiso ?? Number(area.__idPiso),
+        };
       });
-    }
-  }
+    }),
+  );
 
+  const mapaPuestos = new Map();
+  puestosPorArea.flat().filter(Boolean).forEach((p) => {
+    mapaPuestos.set(Number(p.IdPuestoTrabajo), p);
+  });
+
+  puestosCatalogoCache = mapaPuestos;
   return mapaPuestos;
 }
 
 export default function ListaReservas() {
   const [reservas, setReservas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [enriqueciendo, setEnriqueciendo] = useState(false);
   const [error, setError] = useState("");
   const [puestoSeleccionado, setPuestoSeleccionado] = useState("");
   const [filtroArea, setFiltroArea] = useState("TODAS");
@@ -188,22 +204,34 @@ export default function ListaReservas() {
     const cargar = async () => {
       setLoading(true);
       setError("");
+
       try {
         const token = localStorage.getItem("token");
+        const resReservas = await fetch(`${API}/api/reservas/todas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        const [resReservas, mapaPuestos] = await Promise.all([
-          fetch(`${API}/api/reservas/todas`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          construirCatalogoPuestos(token),
-        ]);
-
-        if (!resReservas.ok) {
-          throw new Error(`HTTP ${resReservas.status}`);
-        }
+        if (!resReservas.ok) throw new Error(`HTTP ${resReservas.status}`);
 
         const data = await resReservas.json();
         const reservasBase = Array.isArray(data) ? data : [];
+
+        // Pintar rápido la tabla con datos base.
+        setReservas(reservasBase);
+        setLoading(false);
+
+        // Enriquecer en background solo si faltan campos clave.
+        const necesitaEnriquecer = reservasBase.some((r) => {
+          const faltaPuesto = String(pick(r, ["NoPuesto", "NumeroPuesto", "Puesto"], "")).trim() === "";
+          const faltaArea = String(pick(r, ["NombreArea", "Area"], "")).trim() === "";
+          const faltaPiso = String(pick(r, ["NumeroPiso", "IdPiso", "IDPiso"], "")).trim() === "";
+          return (faltaPuesto || faltaArea || faltaPiso) && getPuestoId(r);
+        });
+
+        if (!necesitaEnriquecer) return;
+
+        setEnriqueciendo(true);
+        const mapaPuestos = await construirCatalogoPuestosRapido(token);
 
         const enriquecidas = reservasBase.map((r) => {
           const idPuesto = getPuestoId(r);
@@ -216,6 +244,7 @@ export default function ListaReservas() {
         setError(e.message || "Error cargando reservas");
       } finally {
         setLoading(false);
+        setEnriqueciendo(false);
       }
     };
 
@@ -248,16 +277,12 @@ export default function ListaReservas() {
 
   const puestosDisponibles = useMemo(() => {
     const map = new Map();
-
     reservasFiltradas.forEach((r) => {
       const key = getPuestoKey(r);
       const labelNoPuesto = getPuestoLabel(r);
       const idPuesto = pick(r, ["IdPuestoTrabajo", "IDPuestoTrabajo", "idPuestoTrabajo"], "N/D");
-      if (!map.has(key)) {
-        map.set(key, { key, label: `Puesto ${labelNoPuesto} (ID ${idPuesto})` });
-      }
+      if (!map.has(key)) map.set(key, { key, label: `Puesto ${labelNoPuesto} (ID ${idPuesto})` });
     });
-
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [reservasFiltradas]);
 
@@ -269,7 +294,6 @@ export default function ListaReservas() {
 
   const historialPuesto = useMemo(() => {
     if (!puestoSeleccionado) return [];
-
     return reservasFiltradas
       .filter((r) => getPuestoKey(r) === puestoSeleccionado)
       .sort((a, b) => {
@@ -282,16 +306,17 @@ export default function ListaReservas() {
   const totalActivasFecha = reservasPorFecha.filter((r) => getEstadoLabel(r) === "Activa").length;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">📋 Centro de Reservas</h1>
+              <h1 className="text-2xl font-bold text-slate-900">📊 Centro de Reservas Corporativo</h1>
               <p className="text-sm text-slate-600 mt-1">
-                Control por piso &gt; área &gt; puesto, con calendario operativo y trazabilidad de usuario.
+                Control operacional por piso &gt; área &gt; puesto, con trazabilidad de quién reservó.
               </p>
             </div>
+
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
               <button
                 onClick={() => setFechaSeleccionada((prev) => moveDate(prev, -1))}
@@ -313,6 +338,27 @@ export default function ListaReservas() {
               </button>
             </div>
           </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => setFechaSeleccionada(getTodayKey())}
+              className="px-3 py-1.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200"
+            >
+              Hoy
+            </button>
+            <button
+              onClick={() => setFechaSeleccionada(moveDate(getTodayKey(), -1))}
+              className="px-3 py-1.5 text-xs rounded-full bg-slate-100 text-slate-700 border border-slate-200"
+            >
+              Ayer
+            </button>
+            <button
+              onClick={() => setFechaSeleccionada(moveDate(getTodayKey(), 1))}
+              className="px-3 py-1.5 text-xs rounded-full bg-slate-100 text-slate-700 border border-slate-200"
+            >
+              Mañana
+            </button>
+          </div>
         </div>
 
         {loading && (
@@ -322,13 +368,17 @@ export default function ListaReservas() {
         )}
 
         {error && (
-          <div className="bg-red-50 text-red-700 rounded-2xl border border-red-200 p-6 shadow-sm">
-            {error}
-          </div>
+          <div className="bg-red-50 text-red-700 rounded-2xl border border-red-200 p-6 shadow-sm">{error}</div>
         )}
 
         {!loading && !error && (
           <>
+            {enriqueciendo && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                Afinando datos de piso/área/puesto para completar información faltante...
+              </div>
+            )}
+
             <motion.section
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -390,6 +440,7 @@ export default function ListaReservas() {
             >
               <h2 className="text-lg font-semibold text-slate-900 mb-1">Reservas por fecha</h2>
               <p className="text-sm text-slate-500 mb-3">Fecha seleccionada: {formatDate(fechaSeleccionada)}</p>
+
               {reservasPorFecha.length === 0 ? (
                 <p className="text-slate-500">No hay reservas para esta fecha con los filtros seleccionados.</p>
               ) : (
@@ -408,10 +459,7 @@ export default function ListaReservas() {
                       {reservasPorFecha.map((r, idx) => {
                         const estado = getEstadoLabel(r);
                         return (
-                          <tr
-                            key={`${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`}
-                            className="border-t border-slate-100"
-                          >
+                          <tr key={`${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`} className="border-t border-slate-100">
                             <td className="py-3 px-4 text-slate-800">{getUsuarioLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-800">#{getPuestoLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getAreaLabel(r)}</td>
@@ -473,10 +521,7 @@ export default function ListaReservas() {
                       {historialPuesto.map((r, idx) => {
                         const estado = getEstadoLabel(r);
                         return (
-                          <tr
-                            key={`hist-${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`}
-                            className="border-t border-slate-100"
-                          >
+                          <tr key={`hist-${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`} className="border-t border-slate-100">
                             <td className="py-3 px-4 text-slate-800">{formatDate(pick(r, ["FechaReserva", "fechaReserva"]))}</td>
                             <td className="py-3 px-4 text-slate-800">{getUsuarioLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getAreaLabel(r)}</td>
