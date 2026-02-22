@@ -85,52 +85,58 @@ function getPisoLabel(row) {
   return String(pick(row, ["NumeroPiso", "IdPiso", "IDPiso"], "Sin piso"));
 }
 
-function getUsuarioLabel(row, nombresPorEmpleado = null) {
-  const nombre = pick(
-    row,
-    [
-      "NombreEmpleado",
-      "NombreCompleto",
-      "NomEmpleado",
-      "Empleado",
-      "Nombre",
-      "UsuarioNombre",
-      "Nombres",
-      "ApellidosNombres",
-      "NomUsu",
-      "Usuario",
-      "UserName",
-      "LoginEmpleado",
-      "Login",
-      "Usr",
-    ],
-    "",
-  );
+function esNombreValido(nombre, row) {
+  const texto = String(nombre || "").trim();
+  if (!texto || texto.length < 3) return false;
 
-  if (String(nombre).trim()) return String(nombre).trim();
+  const area = getAreaLabel(row);
+  const soloNumeros = /^\d+$/.test(texto);
+  const valorTecnico = /^(si|no|activa|cancelada|null|undefined)$/i.test(texto);
+  const esArea = area && texto.toLowerCase() === String(area).trim().toLowerCase();
+  const pareceCargoGenerico = /^(operativo|area|piso|puesto)$/i.test(texto);
+
+  return !soloNumeros && !valorTecnico && !esArea && !pareceCargoGenerico;
+}
+
+function getUsuarioLabel(row, nombresPorEmpleado = null) {
+  const camposPrioritarios = [
+    "NombreEmpleado",
+    "NombreCompleto",
+    "NomEmpleado",
+    "Nombre",
+    "UsuarioNombre",
+    "Nombres",
+    "ApellidosNombres",
+    "NomUsu",
+    "UserName",
+    "LoginEmpleado",
+    "Login",
+    "Usr",
+    // Dejar "Empleado" de último porque en algunos datasets trae el área (ej: Operativo RPC)
+    "Empleado",
+    "Usuario",
+  ];
+
+  for (const key of camposPrioritarios) {
+    const value = pick(row, [key], "");
+    if (esNombreValido(value, row)) return String(value).trim();
+  }
 
   const idEmpleado = Number(pick(row, ["IdEmpleado", "IDEmpleado", "idEmpleado"], ""));
   if (Number.isFinite(idEmpleado) && idEmpleado > 0 && nombresPorEmpleado?.has(idEmpleado)) {
     return nombresPorEmpleado.get(idEmpleado);
   }
 
-  // Fallback inteligente: buscar cualquier campo textual con pinta de nombre de usuario.
   const candidatoDinamico = Object.entries(row || {}).find(([key, value]) => {
     if (!value || typeof value !== "string") return false;
     const k = String(key || "").toLowerCase();
     const v = value.trim();
-    if (!v || v.length < 3) return false;
-
-    const pareceCampoUsuario = /(nom|emple|usu|user|login)/i.test(k);
-    const pareceId = /(id|codigo|cod)/i.test(k);
-    const tieneLetras = /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(v);
-    const valorTecnico = /^(si|no|activa|cancelada)$/i.test(v);
-
-    return pareceCampoUsuario && !pareceId && tieneLetras && !valorTecnico;
+    if (!/(nom|emple|usu|user|login)/i.test(k)) return false;
+    if (/(id|codigo|cod|area|piso|puesto)/i.test(k)) return false;
+    return esNombreValido(v, row);
   });
 
   if (candidatoDinamico) return String(candidatoDinamico[1]).trim();
-
   return "Sin nombre";
 }
 
@@ -393,9 +399,9 @@ export default function ListaReservas() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">📊 Centro de Reservas Corporativo</h1>
@@ -469,10 +475,10 @@ export default function ListaReservas() {
             <motion.section
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
+              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-md"
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Reservas en fecha</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1">{reservasPorFecha.length}</p>
                 </div>
@@ -480,7 +486,7 @@ export default function ListaReservas() {
                   <p className="text-xs uppercase tracking-wide text-emerald-700">Activas en fecha</p>
                   <p className="text-2xl font-bold text-emerald-800 mt-1">{totalActivasFecha}</p>
                 </div>
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Total filtrado</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1">{reservasFiltradas.length}</p>
                 </div>
@@ -523,11 +529,11 @@ export default function ListaReservas() {
             <motion.section
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
+              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-md"
             >
               <div className="flex items-center justify-between gap-4 mb-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900 mb-1">Reservas por fecha</h2>
+                  <h2 className="text-lg font-semibold text-slate-900 mb-1">🗓️ Reservas por fecha</h2>
                   <p className="text-sm text-slate-500">Fecha seleccionada: {formatDate(fechaSeleccionada)}</p>
                 </div>
                 <button
@@ -544,7 +550,7 @@ export default function ListaReservas() {
               ) : (
                 <div className="overflow-auto rounded-xl border border-slate-200">
                   <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-slate-100">
                       <tr className="text-left text-slate-700">
                         <th className="py-3 px-4">Usuario</th>
                         <th className="py-3 px-4">Puesto</th>
@@ -581,10 +587,10 @@ export default function ListaReservas() {
             <motion.section
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
+              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-md"
             >
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">Historial por puesto</h2>
+                <h2 className="text-lg font-semibold text-slate-900">🧾 Historial por puesto</h2>
                 <div className="flex items-center gap-2">
                   <select
                     value={puestoSeleccionado}
@@ -615,7 +621,7 @@ export default function ListaReservas() {
               ) : (
                 <div className="overflow-auto rounded-xl border border-slate-200">
                   <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-slate-100">
                       <tr className="text-left text-slate-700">
                         <th className="py-3 px-4">Fecha</th>
                         <th className="py-3 px-4">Usuario</th>
