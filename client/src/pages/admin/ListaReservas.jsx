@@ -18,19 +18,15 @@ function toDateKey(value) {
   const raw = String(value || "").trim();
   if (!raw) return null;
 
-  // 1) YYYY-MM-DD
   const iso = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
-  // 2) YYYYMMDD
   const compact = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
   if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
 
-  // 3) DD/MM/YYYY
   const latam = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (latam) return `${latam[3]}-${latam[2]}-${latam[1]}`;
 
-  // 4) Fallback Date parser
   const parsed = new Date(raw.includes("T") ? raw : `${raw}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return null;
 
@@ -94,9 +90,12 @@ function getUsuarioLabel(row) {
     row,
     [
       "NombreEmpleado",
+      "NombreCompleto",
       "NomEmpleado",
       "Empleado",
       "Nombre",
+      "UsuarioNombre",
+      "Nombres",
       "Usuario",
       "UserName",
       "LoginEmpleado",
@@ -106,12 +105,7 @@ function getUsuarioLabel(row) {
     "",
   );
 
-  if (nombre) return String(nombre);
-
-  const idEmpleado = pick(row, ["IdEmpleado", "IDEmpleado", "idEmpleado"], "");
-  if (idEmpleado !== "") return `Empleado #${idEmpleado}`;
-
-  return "Sin usuario";
+  return nombre ? String(nombre) : "Sin nombre";
 }
 
 function mergePreferCurrent(current, fallback) {
@@ -123,6 +117,26 @@ function mergePreferCurrent(current, fallback) {
     }
   });
   return output;
+}
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  if (text.includes(",") || text.includes("\n") || text.includes('"')) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function downloadCsv(filename, rows) {
+  if (!rows.length) return;
+  const content = rows.map((r) => r.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([`\uFEFF${content}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 async function construirCatalogoPuestosRapido(token) {
@@ -216,11 +230,9 @@ export default function ListaReservas() {
         const data = await resReservas.json();
         const reservasBase = Array.isArray(data) ? data : [];
 
-        // Pintar rápido la tabla con datos base.
         setReservas(reservasBase);
         setLoading(false);
 
-        // Enriquecer en background solo si faltan campos clave.
         const necesitaEnriquecer = reservasBase.some((r) => {
           const faltaPuesto = String(pick(r, ["NoPuesto", "NumeroPuesto", "Puesto"], "")).trim() === "";
           const faltaArea = String(pick(r, ["NombreArea", "Area"], "")).trim() === "";
@@ -304,6 +316,41 @@ export default function ListaReservas() {
   }, [reservasFiltradas, puestoSeleccionado]);
 
   const totalActivasFecha = reservasPorFecha.filter((r) => getEstadoLabel(r) === "Activa").length;
+
+  const exportarReservasFecha = () => {
+    if (!reservasPorFecha.length) return;
+    const rows = [
+      ["Fecha", "Usuario", "Puesto", "Área", "Piso", "Estado"],
+      ...reservasPorFecha.map((r) => [
+        formatDate(pick(r, ["FechaReserva", "fechaReserva"])),
+        getUsuarioLabel(r),
+        `#${getPuestoLabel(r)}`,
+        getAreaLabel(r),
+        getPisoLabel(r),
+        getEstadoLabel(r),
+      ]),
+    ];
+
+    downloadCsv(`reservas_${fechaSeleccionada}.csv`, rows);
+  };
+
+  const exportarHistorialPuesto = () => {
+    if (!historialPuesto.length) return;
+    const rows = [
+      ["Fecha", "Usuario", "Puesto", "Área", "Piso", "Estado"],
+      ...historialPuesto.map((r) => [
+        formatDate(pick(r, ["FechaReserva", "fechaReserva"])),
+        getUsuarioLabel(r),
+        `#${getPuestoLabel(r)}`,
+        getAreaLabel(r),
+        getPisoLabel(r),
+        getEstadoLabel(r),
+      ]),
+    ];
+
+    const puesto = puestoSeleccionado.replace(/[:#]/g, "_");
+    downloadCsv(`historial_puesto_${puesto}.csv`, rows);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-6">
@@ -438,8 +485,19 @@ export default function ListaReservas() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
             >
-              <h2 className="text-lg font-semibold text-slate-900 mb-1">Reservas por fecha</h2>
-              <p className="text-sm text-slate-500 mb-3">Fecha seleccionada: {formatDate(fechaSeleccionada)}</p>
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900 mb-1">Reservas por fecha</h2>
+                  <p className="text-sm text-slate-500">Fecha seleccionada: {formatDate(fechaSeleccionada)}</p>
+                </div>
+                <button
+                  onClick={exportarReservasFecha}
+                  disabled={!reservasPorFecha.length}
+                  className="px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ⬇️ Descargar CSV
+                </button>
+              </div>
 
               {reservasPorFecha.length === 0 ? (
                 <p className="text-slate-500">No hay reservas para esta fecha con los filtros seleccionados.</p>
@@ -487,18 +545,27 @@ export default function ListaReservas() {
             >
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <h2 className="text-lg font-semibold text-slate-900">Historial por puesto</h2>
-                <select
-                  value={puestoSeleccionado}
-                  onChange={(e) => setPuestoSeleccionado(e.target.value)}
-                  className="px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
-                >
-                  <option value="">Selecciona un puesto</option>
-                  {puestosDisponibles.map((p) => (
-                    <option key={p.key} value={p.key}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={puestoSeleccionado}
+                    onChange={(e) => setPuestoSeleccionado(e.target.value)}
+                    className="px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
+                  >
+                    <option value="">Selecciona un puesto</option>
+                    {puestosDisponibles.map((p) => (
+                      <option key={p.key} value={p.key}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={exportarHistorialPuesto}
+                    disabled={!historialPuesto.length}
+                    className="px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ⬇️ CSV
+                  </button>
+                </div>
               </div>
 
               {!puestoSeleccionado ? (
