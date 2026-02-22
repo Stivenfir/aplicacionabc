@@ -56,8 +56,15 @@ export default function Sidebar({ isOpen, onClose }) {
               className="mb-6"
             >
               <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-800/90 to-slate-900 border border-white/10 shadow-lg">
-                <img src="/abc-logo-wordmark.svg" alt="ABC Desk Booking" className="h-11 w-auto object-contain" />
-                <p className="mt-2 text-xs text-slate-300">Centro corporativo de reservas y operación</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-900/40">
+                    <span className="text-white font-extrabold tracking-wider">ABC</span>
+                  </div>
+                  <div>
+                    <p className="text-slate-100 font-semibold text-sm">ABC Desk Booking</p>
+                    <p className="mt-1 text-xs text-slate-300">Centro corporativo de reservas y operación</p>
+                  </div>
+                </div>
               </div>
             </motion.div>
 

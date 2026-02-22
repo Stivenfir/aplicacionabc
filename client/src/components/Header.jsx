@@ -38,8 +38,8 @@ export default function Header({ onMenuClick }) {
             transition={{ delay: 0.15 }}
             className="flex items-center gap-3"
           >
-            <div className="w-14 h-12 rounded-xl bg-white shadow-md border border-slate-200 flex items-center justify-center px-1">
-              <img src="/abc-logo-wordmark.svg" alt="ABC" className="w-full h-full object-contain" />
+            <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 shadow-md border border-blue-500/40 flex items-center justify-center">
+              <span className="text-white font-extrabold tracking-wide text-lg">ABC</span>
             </div>
             <div>
               <h1 className="text-xl font-extrabold text-slate-900">ABC Desk Booking</h1>
