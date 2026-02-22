@@ -85,7 +85,7 @@ function getPisoLabel(row) {
   return String(pick(row, ["NumeroPiso", "IdPiso", "IDPiso"], "Sin piso"));
 }
 
-function getUsuarioLabel(row) {
+function getUsuarioLabel(row, nombresPorEmpleado = null) {
   const nombre = pick(
     row,
     [
@@ -96,6 +96,8 @@ function getUsuarioLabel(row) {
       "Nombre",
       "UsuarioNombre",
       "Nombres",
+      "ApellidosNombres",
+      "NomUsu",
       "Usuario",
       "UserName",
       "LoginEmpleado",
@@ -105,7 +107,31 @@ function getUsuarioLabel(row) {
     "",
   );
 
-  return nombre ? String(nombre) : "Sin nombre";
+  if (String(nombre).trim()) return String(nombre).trim();
+
+  const idEmpleado = Number(pick(row, ["IdEmpleado", "IDEmpleado", "idEmpleado"], ""));
+  if (Number.isFinite(idEmpleado) && idEmpleado > 0 && nombresPorEmpleado?.has(idEmpleado)) {
+    return nombresPorEmpleado.get(idEmpleado);
+  }
+
+  // Fallback inteligente: buscar cualquier campo textual con pinta de nombre de usuario.
+  const candidatoDinamico = Object.entries(row || {}).find(([key, value]) => {
+    if (!value || typeof value !== "string") return false;
+    const k = String(key || "").toLowerCase();
+    const v = value.trim();
+    if (!v || v.length < 3) return false;
+
+    const pareceCampoUsuario = /(nom|emple|usu|user|login)/i.test(k);
+    const pareceId = /(id|codigo|cod)/i.test(k);
+    const tieneLetras = /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(v);
+    const valorTecnico = /^(si|no|activa|cancelada)$/i.test(v);
+
+    return pareceCampoUsuario && !pareceId && tieneLetras && !valorTecnico;
+  });
+
+  if (candidatoDinamico) return String(candidatoDinamico[1]).trim();
+
+  return "Sin nombre";
 }
 
 function mergePreferCurrent(current, fallback) {
@@ -280,11 +306,25 @@ export default function ListaReservas() {
       return areaOk && pisoOk;
     });
   }, [reservas, filtroArea, filtroPiso]);
+  const nombresPorEmpleado = useMemo(() => {
+    const mapa = new Map();
+    reservas.forEach((r) => {
+      const idEmpleado = Number(pick(r, ["IdEmpleado", "IDEmpleado", "idEmpleado"], ""));
+      if (!Number.isFinite(idEmpleado) || idEmpleado <= 0) return;
+
+      const nombreDetectado = getUsuarioLabel(r);
+      if (nombreDetectado && nombreDetectado !== "Sin nombre" && !mapa.has(idEmpleado)) {
+        mapa.set(idEmpleado, nombreDetectado);
+      }
+    });
+    return mapa;
+  }, [reservas]);
+
 
   const reservasPorFecha = useMemo(() => {
     return reservasFiltradas
       .filter((r) => toDateKey(pick(r, ["FechaReserva", "fechaReserva"], "")) === fechaSeleccionada)
-      .sort((a, b) => getUsuarioLabel(a).localeCompare(getUsuarioLabel(b)));
+      .sort((a, b) => getUsuarioLabel(a, nombresPorEmpleado).localeCompare(getUsuarioLabel(b, nombresPorEmpleado)));
   }, [reservasFiltradas, fechaSeleccionada]);
 
   const puestosDisponibles = useMemo(() => {
@@ -323,7 +363,7 @@ export default function ListaReservas() {
       ["Fecha", "Usuario", "Puesto", "Área", "Piso", "Estado"],
       ...reservasPorFecha.map((r) => [
         formatDate(pick(r, ["FechaReserva", "fechaReserva"])),
-        getUsuarioLabel(r),
+        getUsuarioLabel(r, nombresPorEmpleado),
         `#${getPuestoLabel(r)}`,
         getAreaLabel(r),
         getPisoLabel(r),
@@ -340,7 +380,7 @@ export default function ListaReservas() {
       ["Fecha", "Usuario", "Puesto", "Área", "Piso", "Estado"],
       ...historialPuesto.map((r) => [
         formatDate(pick(r, ["FechaReserva", "fechaReserva"])),
-        getUsuarioLabel(r),
+        getUsuarioLabel(r, nombresPorEmpleado),
         `#${getPuestoLabel(r)}`,
         getAreaLabel(r),
         getPisoLabel(r),
@@ -518,7 +558,7 @@ export default function ListaReservas() {
                         const estado = getEstadoLabel(r);
                         return (
                           <tr key={`${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`} className="border-t border-slate-100">
-                            <td className="py-3 px-4 text-slate-800">{getUsuarioLabel(r)}</td>
+                            <td className="py-3 px-4 text-slate-800">{getUsuarioLabel(r, nombresPorEmpleado)}</td>
                             <td className="py-3 px-4 text-slate-800">#{getPuestoLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getAreaLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getPisoLabel(r)}</td>
@@ -590,7 +630,7 @@ export default function ListaReservas() {
                         return (
                           <tr key={`hist-${pick(r, ["IdEmpleadoPuestoTrabajo", "id"], idx)}`} className="border-t border-slate-100">
                             <td className="py-3 px-4 text-slate-800">{formatDate(pick(r, ["FechaReserva", "fechaReserva"]))}</td>
-                            <td className="py-3 px-4 text-slate-800">{getUsuarioLabel(r)}</td>
+                            <td className="py-3 px-4 text-slate-800">{getUsuarioLabel(r, nombresPorEmpleado)}</td>
                             <td className="py-3 px-4 text-slate-700">{getAreaLabel(r)}</td>
                             <td className="py-3 px-4 text-slate-700">{getPisoLabel(r)}</td>
                             <td className="py-3 px-4">
