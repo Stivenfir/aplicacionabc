@@ -24,7 +24,6 @@ export default function Sidebar({ isOpen, onClose }) {
   };
 
   const currentRole = roleConfig[userRole] || roleConfig.empleado;
-  const visibleItems = menuItems.filter((item) => item.roles.includes(userRole));
 
   return (
     <>
@@ -63,7 +62,7 @@ export default function Sidebar({ isOpen, onClose }) {
             </motion.div>
 
             <nav className="space-y-1.5 flex-1 overflow-y-auto pr-1">
-              {visibleItems.map((item, index) => {
+              {menuItems.map((item, index) => {
                 const isActive = location.pathname === item.path;
 
                 return (
