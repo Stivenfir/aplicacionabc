@@ -23,6 +23,12 @@ export default function Sidebar({ isOpen, onClose }) {
   };
 
   const currentRole = roleConfig[userRole] || roleConfig.empleado;
+  const userInitials = username
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("") || "US";
 
   return (
     <>
@@ -111,12 +117,22 @@ export default function Sidebar({ isOpen, onClose }) {
               transition={{ delay: 0.25 }}
               className="mt-5"
             >
-              <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3.5">
-                <p className="text-slate-100 text-sm font-semibold truncate">{username}</p>
-                <span className={`mt-2 inline-flex px-2 py-1 rounded-full border text-xs font-medium ${currentRole.chip} ${currentRole.color}`}>
-                  {currentRole.label}
-                </span>
-                <p className="text-[11px] text-slate-400 mt-3">ABC Desk Booking · v1.0</p>
+              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/90 to-[#0f2348] p-4 shadow-lg shadow-slate-950/35">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/90 text-slate-900 flex items-center justify-center text-xs font-black tracking-wide">
+                    {userInitials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-slate-100 text-sm font-semibold truncate">{username}</p>
+                    <span className={`mt-1 inline-flex px-2 py-1 rounded-full border text-[11px] font-semibold ${currentRole.chip} ${currentRole.color}`}>
+                      {currentRole.label}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="h-px bg-white/10 my-3" />
+
+                <p className="text-[11px] text-slate-300 font-medium tracking-wide">ABC Desk Booking · v1.0</p>
               </div>
             </motion.div>
           </div>
