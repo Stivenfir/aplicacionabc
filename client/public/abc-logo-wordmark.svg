@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" role="img" aria-label="ABC Logo">
+  <defs>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1E40AF"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(8,10)">
+    <ellipse cx="70" cy="50" rx="62" ry="45" fill="none" stroke="url(#orange)" stroke-width="7" transform="rotate(-18 70 50)"/>
+    <path d="M12 58c24-34 72-50 121-40" fill="none" stroke="#1D4ED8" stroke-width="7" stroke-linecap="round"/>
+    <path d="M18 74c34-18 78-25 125-16" fill="none" stroke="#FB923C" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <text x="128" y="78" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700" fill="url(#blue)">ABC</text>
+</svg>
