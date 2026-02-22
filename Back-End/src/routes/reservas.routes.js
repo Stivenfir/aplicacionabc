@@ -513,7 +513,7 @@ router.post("/", authenticateToken, async (req, res) => {
 // PUT - Cancelar una reserva        
 router.put("/:idReserva/cancelar", authenticateToken, async (req, res) => {        
   const { idReserva } = req.params;        
-  const { observacion, emergencia } = req.body;  // ✅ observacion + flag emergencia    
+  const { observacion, emergencia, idPuestoTrabajo } = req.body;  // ✅ observacion + flag emergencia    
   const idEmpleado = req.user.idEmpleado;  // ✅ Del token JWT    
   const usuario = req.user.username;        
         
@@ -523,13 +523,7 @@ router.put("/:idReserva/cancelar", authenticateToken, async (req, res) => {
       error: "observacion es requerida"        
     });        
   }        
-        
-  logAuditoria('CANCELAR_RESERVA', usuario, {        
-    idReserva,        
-    idEmpleado,        
-    observacion        
-  });        
-        
+
   try {        
     const reservasEmpleado = await GetData(`ConsultaReservas=@P%3D0,@IdEmpleado%3D${idEmpleado}`);
     if (!reservasEmpleado || reservasEmpleado.trim().startsWith('Array') || reservasEmpleado.trim().startsWith(':')) {
@@ -567,7 +561,7 @@ router.put("/:idReserva/cancelar", authenticateToken, async (req, res) => {
     }
 
     // SP_EditReservas con @P=1 para cancelar reserva        
-    var Rta = await GetData(`EditReservas=@P%3D1,@IdEmpleadoPuestoTrabajo%3D${idReserva},@Obs%3D'${encodeURIComponent(observacion)}',@IdEmpleado%3D${idEmpleado}`);        
+    var Rta = await GetData(`EditReservas=@P%3D1,@IdEmpleadoPuestoTrabajo%3D${idReserva},@Obs%3D'${encodeURIComponent(observacion)}',@IdEmpleado%3D${idEmpleado},@IdPuestoTrabajo%3D${idPuestoTrabajo}`);        
         
     // ✅ Validar formato PHP inválido      
     if (!Rta || Rta.trim().startsWith('Array') || Rta.trim().startsWith(':')) {        
