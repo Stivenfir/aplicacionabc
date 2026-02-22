@@ -115,14 +115,14 @@ export default function Login() {
             </div>
 
             <h2 className="text-5xl md:text-6xl font-black leading-tight">
-              Reserva tu puesto
+              Reserva tu puesto de
               <span className="block bg-gradient-to-r from-cyan-300 via-blue-300 to-fuchsia-300 bg-clip-text text-transparent">
-                con experiencia 3D
+                trabajo
               </span>
             </h2>
 
             <p className="text-xl text-blue-100/90 max-w-xl">
-              Una experiencia visual de nueva generación para entrar al ecosistema de reservas corporativas.
+              Hot-desking empresarial con trazabilidad, disponibilidad y control.
             </p>
           </motion.div>
 
