@@ -36,7 +36,6 @@ export default function LoginCard({
                 <p className="text-sm text-gray-500">Acceso corporativo seguro</p>
               </div>
             </div>
-            <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">SSL</span>
           </div>
 
           {error && (

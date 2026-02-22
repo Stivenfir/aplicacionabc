@@ -61,10 +61,21 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950">
+    <div className="relative min-h-screen overflow-hidden bg-[#050B1A]">
       <AnimatedBackground />
 
       <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.25),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(168,85,247,0.2),transparent_30%),radial-gradient(circle_at_50%_100%,rgba(34,197,94,0.15),transparent_35%)]" />
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[12%] left-[8%] w-28 h-28 border border-cyan-300/30 rounded-2xl [transform:rotateX(55deg)_rotateY(-20deg)]"
+        />
+        <motion.div
+          animate={{ rotate: -360 }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-[14%] right-[10%] w-36 h-36 border border-fuchsia-300/25 rounded-full [transform:rotateX(65deg)_rotateY(20deg)]"
+        />
         <div className="absolute -top-40 -left-20 w-[520px] h-[520px] rounded-full bg-cyan-500/10 blur-3xl" />
         <div className="absolute -bottom-36 -right-20 w-[560px] h-[560px] rounded-full bg-fuchsia-500/10 blur-3xl" />
       </div>
@@ -106,26 +117,13 @@ export default function Login() {
             <h2 className="text-5xl md:text-6xl font-black leading-tight">
               Reserva tu puesto
               <span className="block bg-gradient-to-r from-cyan-300 via-blue-300 to-fuchsia-300 bg-clip-text text-transparent">
-                con experiencia premium
+                con experiencia 3D
               </span>
             </h2>
 
             <p className="text-xl text-blue-100/90 max-w-xl">
-              Hot-desking corporativo con trazabilidad, disponibilidad y control operativo en tiempo real.
+              Una experiencia visual de nueva generación para entrar al ecosistema de reservas corporativas.
             </p>
-
-            <div className="grid grid-cols-3 gap-3 max-w-xl">
-              {[
-                ["99.9%", "Disponibilidad"],
-                ["24/7", "Monitoreo"],
-                ["+10k", "Reservas"],
-              ].map(([value, label]) => (
-                <div key={label} className="rounded-xl border border-white/20 bg-white/10 backdrop-blur px-3 py-3">
-                  <p className="text-xl font-black text-white">{value}</p>
-                  <p className="text-xs text-blue-200/90">{label}</p>
-                </div>
-              ))}
-            </div>
           </motion.div>
 
           <LoginCard
