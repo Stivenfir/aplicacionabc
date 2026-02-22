@@ -9,7 +9,7 @@ const menuItems = [
   // Sección Admin  
   { path: "/areas", label: "Gestión de Áreas", icon: "📍", roles: ["admin"] },
   { path: "/puestos", label: "Gestión de Puestos", icon: "🪑", roles: ["admin"] },   
-  { path: "/admin/usuarios", label: "Lista de Usuarios", icon: "👥", roles: ["admin"] },  
+  { path: "/admin/usuarios", label: "Lista de Reservas", icon: "📋", roles: ["admin"] },  
   { path: "/admin/asignaciones", label: "Re-asignar Puestos", icon: "🔄", roles: ["admin", "jefe"] },  
   { path: "/admin/parametros", label: "Parametrización", icon: "⚙️", roles: ["admin"] },  
 ];  

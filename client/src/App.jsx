@@ -19,6 +19,7 @@ import L_DashboardLayout from "./layouts/DashboardLayoutLeader";
 import C_DashboardLayout from "./layouts/DashboardLayoutCustom";
 import Puestos from "./pages/Puestos";
 import MisReservas from "./pages/MisReservas"; // ⬅️ Agregar import 
+import ListaReservas from "./pages/admin/ListaReservas";
 
 function PrivateRoute({ children }) {
   return isAuthed() ? children : <Navigate to="/login" replace />;
@@ -126,6 +127,17 @@ function AppRoutes() {
             <PrivateRoute>
               <DashboardLayout>
                 <MisReservas />
+              </DashboardLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/usuarios"
+          element={
+            <PrivateRoute>
+              <DashboardLayout>
+                <ListaReservas />
               </DashboardLayout>
             </PrivateRoute>
           }
