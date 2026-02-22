@@ -249,11 +249,16 @@ export default function VisualizarPuestoModal({
                     ref={imagenRef}  
                     src={planoUrl}  
                     alt="Plano del piso"  
-                    className="max-w-full h-auto"  
+                    className="block max-w-none h-auto"  
                     onLoad={(e) => {  
                       if (canvasRef.current) {  
-                        canvasRef.current.width = e.target.width;  
-                        canvasRef.current.height = e.target.height;  
+                        const naturalWidth = e.target.naturalWidth || e.target.width;  
+                        const naturalHeight = e.target.naturalHeight || e.target.height;  
+
+                        canvasRef.current.width = naturalWidth;  
+                        canvasRef.current.height = naturalHeight;  
+                        canvasRef.current.style.width = `${naturalWidth}px`;  
+                        canvasRef.current.style.height = `${naturalHeight}px`;  
                         dibujarMapa();  
                       }  
                     }}  
