@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const menuItems = [
   { path: "/dashboard", label: "Dashboard", icon: "🏠", roles: ["admin", "jefe", "empleado"] },
-  { path: "/mapa", label: "Mapa de Puestos", icon: "🗺️", roles: ["admin", "jefe", "empleado"] },
-  { path: "/mis-reservas", label: "Mis Reservas", icon: "📋", roles: ["admin", "jefe", "empleado"] },
+  { path: "/admin/mapa", label: "Mapa de Puestos", icon: "🗺️", roles: ["admin", "jefe", "empleado"] },
+  { path: "/admin/mis-reservas", label: "Mis Reservas", icon: "📋", roles: ["admin", "jefe", "empleado"] },
   { path: "/areas", label: "Gestión de Áreas", icon: "📍", roles: ["admin"] },
   { path: "/puestos", label: "Gestión de Puestos", icon: "🪑", roles: ["admin"] },
   { path: "/admin/usuarios", label: "Lista de Reservas", icon: "📊", roles: ["admin"] },

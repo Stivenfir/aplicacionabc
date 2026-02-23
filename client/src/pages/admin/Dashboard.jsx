@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 
 const cards = [
   {
-    to: "/mapa",
+    to: "/admin/mapa",
     title: "Mapa de puestos",
     description: "Visualiza la ocupación en tiempo real y reserva en segundos.",
     icon: "🗺️",
@@ -17,7 +17,7 @@ const cards = [
     accent: "from-violet-500 to-indigo-600",
   },
   {
-    to: "/mis-reservas",
+    to: "/admin/mis-reservas",
     title: "Mis reservas",
     description: "Consulta historial y controla tus reservas activas fácilmente.",
     icon: "📋",

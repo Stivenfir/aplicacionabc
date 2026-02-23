@@ -103,6 +103,18 @@ function AppRoutes() {
           }
         />
 
+
+        <Route
+          path="/admin/mapa"
+          element={
+            <PrivateRoute>
+              <DashboardLayout>
+                <Mapa />
+              </DashboardLayout>
+            </PrivateRoute>
+          }
+        />
+
         <Route
           path="/mapa"
           element={
@@ -132,6 +144,18 @@ function AppRoutes() {
               <AnimatedPage>
                 <Puestos />
               </AnimatedPage>
+            </PrivateRoute>
+          }
+        />
+
+
+        <Route
+          path="/admin/mis-reservas"
+          element={
+            <PrivateRoute>
+              <DashboardLayout>
+                <MisReservas />
+              </DashboardLayout>
             </PrivateRoute>
           }
         />
