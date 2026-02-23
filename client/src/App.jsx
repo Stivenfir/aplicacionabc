@@ -26,6 +26,20 @@ function PrivateRoute({ children }) {
   return isAuthed() ? children : <Navigate to="/login" replace />;
 }
 
+function RoleBasedLayout({ children }) {
+  const userRole = localStorage.getItem("userRole") || "empleado";
+
+  if (userRole === "admin") {
+    return <DashboardLayout>{children}</DashboardLayout>;
+  }
+
+  if (userRole === "jefe") {
+    return <L_DashboardLayout>{children}</L_DashboardLayout>;
+  }
+
+  return <C_DashboardLayout>{children}</C_DashboardLayout>;
+}
+
 function AnimatedPage({ children }) {
   return (
     <motion.div
@@ -93,9 +107,9 @@ function AppRoutes() {
           path="/mapa"
           element={
             <PrivateRoute>
-              <DashboardLayout>
+              <RoleBasedLayout>
                 <Mapa />
-              </DashboardLayout>
+              </RoleBasedLayout>
             </PrivateRoute>
           }
         />
@@ -126,9 +140,9 @@ function AppRoutes() {
           path="/mis-reservas"
           element={
             <PrivateRoute>
-              <DashboardLayout>
+              <RoleBasedLayout>
                 <MisReservas />
-              </DashboardLayout>
+              </RoleBasedLayout>
             </PrivateRoute>
           }
         />
