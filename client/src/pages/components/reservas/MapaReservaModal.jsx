@@ -113,13 +113,15 @@ function toDisplayRect(rect, metrics) {
 function syncCanvasWithImage(canvas, image) {
   if (!canvas || !image) return null;
 
-  const displayWidth = image.clientWidth || image.width || 0;
-  const displayHeight = image.clientHeight || image.height || 0;
-  const naturalWidth = image.naturalWidth || displayWidth;
-  const naturalHeight = image.naturalHeight || displayHeight;
-  if (!displayWidth || !displayHeight || !naturalWidth || !naturalHeight) return null;
+  const naturalWidth = image.naturalWidth || image.clientWidth || image.width || 0;
+  const naturalHeight = image.naturalHeight || image.clientHeight || image.height || 0;
+  if (!naturalWidth || !naturalHeight) return null;
 
-  // Misma referencia que se usa al mapear puestos (coordenadas en display)
+  // Usar tamaño intrínseco del plano para mantener la misma referencia
+  // que se utiliza al guardar coordenadas en otros módulos.
+  const displayWidth = naturalWidth;
+  const displayHeight = naturalHeight;
+
   canvas.width = displayWidth;
   canvas.height = displayHeight;
   canvas.style.width = `${displayWidth}px`;
@@ -619,7 +621,7 @@ export default function MapaReservaModal({
                     ref={imagenRef}
                     src={planoUrl}
                     alt="Plano del piso"
-                    className="block w-full h-auto"
+                    className="block max-w-none h-auto"
                     onLoad={() => {
                       dibujarPuestoAsignado();
                     }}

@@ -19,9 +19,25 @@ import L_DashboardLayout from "./layouts/DashboardLayoutLeader";
 import C_DashboardLayout from "./layouts/DashboardLayoutCustom";
 import Puestos from "./pages/Puestos";
 import MisReservas from "./pages/MisReservas"; // ⬅️ Agregar import 
+import ListaReservas from "./pages/admin/ListaReservas";
+import ReasignacionesConstruccion from "./pages/admin/ReasignacionesConstruccion";
 
 function PrivateRoute({ children }) {
   return isAuthed() ? children : <Navigate to="/login" replace />;
+}
+
+function RoleBasedLayout({ children }) {
+  const userRole = localStorage.getItem("userRole") || "empleado";
+
+  if (userRole === "admin") {
+    return <DashboardLayout>{children}</DashboardLayout>;
+  }
+
+  if (userRole === "jefe") {
+    return <L_DashboardLayout>{children}</L_DashboardLayout>;
+  }
+
+  return <C_DashboardLayout>{children}</C_DashboardLayout>;
 }
 
 function AnimatedPage({ children }) {
@@ -87,13 +103,25 @@ function AppRoutes() {
           }
         />
 
+
         <Route
-          path="/mapa"
+          path="/admin/mapa"
           element={
             <PrivateRoute>
               <DashboardLayout>
                 <Mapa />
               </DashboardLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/mapa"
+          element={
+            <PrivateRoute>
+              <RoleBasedLayout>
+                <Mapa />
+              </RoleBasedLayout>
             </PrivateRoute>
           }
         />
@@ -120,12 +148,47 @@ function AppRoutes() {
           }
         />
 
+
         <Route
-          path="/mis-reservas"
+          path="/admin/mis-reservas"
           element={
             <PrivateRoute>
               <DashboardLayout>
                 <MisReservas />
+              </DashboardLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/mis-reservas"
+          element={
+            <PrivateRoute>
+              <RoleBasedLayout>
+                <MisReservas />
+              </RoleBasedLayout>
+            </PrivateRoute>
+          }
+        />
+
+
+        <Route
+          path="/admin/asignaciones"
+          element={
+            <PrivateRoute>
+              <DashboardLayout>
+                <ReasignacionesConstruccion />
+              </DashboardLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/usuarios"
+          element={
+            <PrivateRoute>
+              <DashboardLayout>
+                <ListaReservas />
               </DashboardLayout>
             </PrivateRoute>
           }
